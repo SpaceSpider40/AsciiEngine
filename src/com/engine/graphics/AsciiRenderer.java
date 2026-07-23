@@ -1,10 +1,11 @@
 package com.engine.graphics;
 
+import com.engine.Debug;
 import com.engine.World;
 import com.engine.ecs.components.MeshComponent;
 import com.engine.ecs.components.TransformComponent;
+import com.engine.math.Matrix44;
 import com.engine.math.Triangle;
-import com.engine.math.Vector2;
 import com.engine.math.Vector3;
 
 import java.util.Arrays;
@@ -20,6 +21,7 @@ public class AsciiRenderer implements IRenderer {
 
     private char[]  frameBuffer;
     private float[] zBuffer;
+    private int[]   colorBuffer;
 
     private final String  ramp           = ".,-~:;=!*#$@";
     private final Vector3 lightDirection = new Vector3(1.0f, -2.0f, -1.5f).normalize();
@@ -34,6 +36,7 @@ public class AsciiRenderer implements IRenderer {
 
         frameBuffer = new char[width * height];
         zBuffer     = new float[width * height];
+        colorBuffer = new int[width * height];
 
         System.out.print("\033[H\033[2J");
         System.out.flush();
@@ -50,36 +53,47 @@ public class AsciiRenderer implements IRenderer {
                 MeshComponent.class
         );
 
+        Matrix44 viewMatrix = Matrix44.createViewMatrix(
+                new Vector3(0, 0, -20), //camera position
+                new Vector3(0, 0, -5) //camera rotation
+        );
+
         for (var entity : entities) {
+            // LAYER 0 - 3D
             var transform = ecs.get(entity, TransformComponent.class);
             var mesh      = ecs.get(entity, MeshComponent.class);
 
+            Matrix44 modelMatrix = Matrix44.createModelMatrix(
+                    transform.position(),
+                    transform.rotation(),
+                    transform.scale()
+            );
+
+            Matrix44 modelViewMatrix = viewMatrix.mul(modelMatrix);
+
             for (Triangle tris : mesh.tris()) {
                 //transform
-                var w0 = transform(tris.v0, transform);
-                var w1 = transform(tris.v1, transform);
-                var w2 = transform(tris.v2, transform);
+                var w0 = modelViewMatrix.mulPoint(tris.v0);
+                var w1 = modelViewMatrix.mulPoint(tris.v1);
+                var w2 = modelViewMatrix.mulPoint(tris.v2);
 
                 //rotate normal
-                var wNormal = tris
-                        .normal
-                        .rotateX(transform.rotation().x)
-                        .rotateY(transform.rotation().y)
-                        .rotateZ(transform.rotation().z)
+                //todo: the proper graphics engineering fix is to transform your normals using the transpose of the inverse of the model matrix
+                var wNormal = modelMatrix
+                        .mulVector(tris.normal)
                         .normalize();
 
-                var diffuse   = wNormal.dot(lightDirection);
-                var intensity = Math.max(0.0f, diffuse) * 0.85f + ambientLight;
-                var ch        = ramp.charAt((int) (intensity * (ramp.length() - 1)));
-
-                //todo: make proper camera matrix transformation
-                //Camera Space
-                w0.z += cameraDistance;
-                w1.z += cameraDistance;
-                w2.z += cameraDistance;
+                //Backface culling
+//                var viewDir = w0.normalize();
+//                if (wNormal.dot(viewDir) >= 0) continue;
 
                 //near plance clipping
                 if (w0.z <= 0.1f || w1.z <= 0.1f || w2.z <= 0.1f) continue;
+
+                //light
+                var diffuse   = wNormal.dot(lightDirection);
+                var intensity = Math.max(0.0f, diffuse) * 0.85f + ambientLight;
+                var ch        = ramp.charAt((int) (intensity * (ramp.length() - 1)));
 
                 //perspective projection
                 var p0 = project(w0);
@@ -119,6 +133,7 @@ public class AsciiRenderer implements IRenderer {
                             if (ooz > zBuffer[bufferIdx]) {
                                 zBuffer[bufferIdx]     = ooz;
                                 frameBuffer[bufferIdx] = ch;
+                                colorBuffer[bufferIdx] = Color.RED.pack();//todo: teporary solution before materials implementaion
                             }
                         }
                     }
@@ -127,31 +142,62 @@ public class AsciiRenderer implements IRenderer {
             }
         }
 
+        // LAYER 1 - INTERFACE
+
+
+
+
+
+        // LAYER 2 - DEBUG
+        int messageY = 0;
+        for (Debug.Message message : Debug.getMessages()) {
+            int messageX = 0;
+
+//            if (messageY - 1 >= height) break;
+
+            for (char c : message.msg().toCharArray()) {
+                if (messageX >= width) break;
+
+                int bufferIdx = messageX + messageY * width;
+
+                if (bufferIdx >= frameBuffer.length) break;
+
+                frameBuffer[bufferIdx] = c;
+                colorBuffer[bufferIdx] = message.color().pack();
+
+                messageX++;
+            }
+            messageY++;
+        }
+
+        //todo: investigate something faster and more memory performant than string builder
         //DRAW
         StringBuilder sb = new StringBuilder(width * height);
         for (int i = 0; i < width * height; i++) {
-            sb.append("\033[")
-              .append((i / width) + 1)
-              .append(";")
-              .append((i % width) + 1)
-              .append("H")
-              .append(frameBuffer[i]);
+
+            int color = colorBuffer[i];
+
+            sb
+                    //position
+                    .append("\033[")
+                    .append((i / width) + 1)
+                    .append(";")
+                    .append((i % width) + 1)
+                    .append("H")
+                    //color
+                    .append("\033[38;2;")
+                    .append(Color.unpackR(color))
+                    .append(";")
+                    .append(Color.unpackG(color))
+                    .append(";")
+                    .append(Color.unpackB(color))
+                    .append("m")
+                    .append(frameBuffer[i]);
         }
         System.out.print(sb);
+        System.out.flush();
 
         return new char[0][];
-    }
-
-    private Vector3 transform(Vector3 vert, TransformComponent trans) {
-        return new Vector3(
-                vert.x * trans.scale().x,
-                vert.y * trans.scale().y,
-                vert.z * trans.scale().z
-        )
-                .rotateX(trans.rotation().x)
-                .rotateY(trans.rotation().y)
-                .rotateZ(trans.rotation().z)
-                .add(trans.position());
     }
 
     private Vector3 project(Vector3 cameraSpace) {
@@ -170,5 +216,6 @@ public class AsciiRenderer implements IRenderer {
     private void clear() {
         Arrays.fill(frameBuffer, ' ');
         Arrays.fill(zBuffer, 0.0f);
+        Arrays.fill(colorBuffer, 0);
     }
 }

@@ -1,13 +1,9 @@
-import com.engine.Engine;
-import com.engine.ITick;
-import com.engine.IUpdate;
-import com.engine.Input;
+import com.engine.*;
 import com.engine.ecs.components.TransformComponent;
 import com.engine.ecs.systems.EcsSystem;
 
 public class Main {
     static void main(String[] args) throws Exception {
-
         var engine = new Engine();
         engine.init(args);
 
@@ -25,17 +21,33 @@ public class Main {
                         .ecsRegistry
                         .view(TransformComponent.class)
                         .forEach(entity -> {
-                            var transform = engine.worldManager.getCurrentWorld().ecsRegistry.get(entity, TransformComponent.class);
 
-                            transform.rotation().y += (float) (0.1f * delta);
-//                            transform.rotation().z += (float) (0.1f * delta);
-//                            transform.rotation().x -= (float) (0.1f * delta);
+                            var transform = engine.worldManager.getCurrentWorld().ecsRegistry.get(entity, TransformComponent.class);
+                            if (Input.IsKeyDown(100)) {
+                                transform.rotation().y += (float) (0.01f * delta);
+                            }
+                            if (Input.IsKeyDown(97)) {
+                                transform.rotation().y -= (float) (0.01f * delta);
+                            }
+                            if (Input.IsKeyDown(119)) {
+                                transform.rotation().x += (float) (0.01f * delta);
+                            }
+                            if (Input.IsKeyDown(115)) {
+                                transform.rotation().x -= (float) (0.01f * delta);
+                            }
+                            if (Input.IsKeyDown(114)) {
+                                transform.rotation().z += (float) (0.01f * delta);
+                            }
+                            if (Input.IsKeyDown(107)) {
+                                transform.rotation().z -= (float) (0.01f * delta);
+                            }
+
                         });
             }
         };
 
         engine.register((ITick) system);
         engine.register((IUpdate) system);
-        engine.run();
+        engine.start();
     }
 }
