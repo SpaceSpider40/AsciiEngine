@@ -1,11 +1,15 @@
 package com.engine;
 
 import com.engine.ecs.EcsRegister;
-import com.engine.ecs.components.NameComponent;
+import com.engine.components.NameComponent;
+
+import java.util.ArrayList;
 
 public class World {
 
-    public final EcsRegister ecsRegistry = new EcsRegister();
+    private final EcsRegister        ecsRegistry    = new EcsRegister();
+    private final ArrayList<ITick>   tickRegistry   = new ArrayList<>();
+    private final ArrayList<IUpdate> updateRegistry = new ArrayList<>();
 
     private final String name;
 
@@ -33,9 +37,28 @@ public class World {
         ecsRegistry.destroy(entity);
     }
 
-    record WorldSaveData(
+    public EcsRegister getEntityRegistry() {
+        return ecsRegistry;
+    }
 
-    ) {
+    public void register(ITick tick) {
+        tickRegistry.add(tick);
+    }
 
+    public void register(IUpdate update) {
+        updateRegistry.add(update);
+    }
+
+    void update(double deltaTime) {
+        updateRegistry.forEach(consumer -> consumer.update(deltaTime));
+    }
+
+    void tick(double deltaTime) {
+        tickRegistry.forEach(consumer -> consumer.tick(deltaTime));
+    }
+
+    @Override
+    public String toString() {
+        return "World[" + name + "]";
     }
 }

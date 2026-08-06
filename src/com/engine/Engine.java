@@ -2,9 +2,11 @@ package com.engine;
 
 import com.engine.graphics.AsciiRenderer;
 import com.engine.graphics.IRenderer;
+import com.engine.physics.IPhysics;
+import com.engine.physics.Physics;
+import com.engine.util.TerminalSizer;
 
 import java.io.IOException;
-import java.util.ArrayList;
 import java.util.Arrays;
 
 public final class Engine extends Thread {
@@ -16,9 +18,6 @@ public final class Engine extends Thread {
     private static final float TPS = 1.0f / 60;
     private static final float FPS = 1.0f / 60f; //0.08f
 
-    private final ArrayList<ITick>   tickRegistry   = new ArrayList<>();
-    private final ArrayList<IUpdate> updateRegistry = new ArrayList<>();
-
     private double deltaTime = 0;
 
     private boolean isInitialized = false;
@@ -26,6 +25,11 @@ public final class Engine extends Thread {
     private Config config;
 
     private IRenderer renderer = new AsciiRenderer();
+    private IPhysics  physics  = null;
+
+    public IPhysics getPhysics() {
+        return physics;
+    }
 
     public void init(String[] args) {
         if (isInitialized) {
@@ -38,7 +42,6 @@ public final class Engine extends Thread {
         System.out.print("\033[0J");
 
         config = new Config(Arrays.stream(args));
-        renderer.init(100, 50);
 
         try {
             Input.init();
@@ -46,6 +49,12 @@ public final class Engine extends Thread {
             isInitialized = false;
             throw new RuntimeException(e);
         }
+
+        var terminalSize = TerminalSizer.getTerminalSize();
+        renderer.init(terminalSize.width(), terminalSize.height());
+
+        //init physics
+        physics = new Physics(this, 0.00000001f);//9.86f
 
         isInitialized = true;
     }
@@ -83,24 +92,17 @@ public final class Engine extends Thread {
         cleanup();
     }
 
-    public void register(ITick tick) {
-        tickRegistry.add(tick);
-    }
-
-    public void register(IUpdate update) {
-        updateRegistry.add(update);
-    }
-
     private void update() {
         Input.update();
 
-        updateRegistry.forEach(consumer -> consumer.update(deltaTime));
+        worldManager.getCurrentWorld().update(deltaTime);
 
         renderer.render(worldManager.getCurrentWorld());
     }
 
     private void tick() {
-        tickRegistry.forEach(consumer -> consumer.tick(TPS));
+        physics.update(TPS);
+        worldManager.getCurrentWorld().tick(TPS);
     }
 
     private void cleanup() {

@@ -1,11 +1,9 @@
 package com.engine;
 
-import com.engine.ecs.components.MeshComponent;
-import com.engine.ecs.components.TransformComponent;
-import com.engine.math.Triangle;
+import com.engine.components.ActiveCameraComponent;
+import com.engine.components.CameraComponent;
+import com.engine.components.TransformComponent;
 import com.engine.math.Vector3;
-
-import java.util.List;
 
 public class WorldManager {
 
@@ -20,64 +18,57 @@ public class WorldManager {
         return currentWorld;
     }
 
+    @SuppressWarnings("D")
     private World createTemplateWorld() {
-        var world = new World("Empty World");
-        var box   = world.createEntity();
-        world.ecsRegistry.set(
-                box,
-                new TransformComponent(
-                        new Vector3(0, 0, 1),
-                        Vector3.one(),
-                        Vector3.zero()
-                )
-        );
-        float h = 4 / 2.0f;
-        // Define 8 basic corners
-        Vector3 c0 = new Vector3(-h, -h, -h);
-        Vector3 c1 = new Vector3(h, -h, -h);
-        Vector3 c2 = new Vector3(h, h, -h);
-        Vector3 c3 = new Vector3(-h, h, -h);
-        Vector3 c4 = new Vector3(-h, -h, h);
-        Vector3 c5 = new Vector3(h, -h, h);
-        Vector3 c6 = new Vector3(h, h, h);
-        Vector3 c7 = new Vector3(-h, h, h);
+        var world    = new World("Empty World");
+        var registry = world.getEntityRegistry();
 
-        // Construct 12 distinct structural triangles with correct exterior winding
-        world.ecsRegistry.set(
-                box,
-                new MeshComponent(
-                        List.of(
-                                new Triangle(
-                                        new Vector3(1, 0, 0),
-                                        new Vector3(10, 0, 0),
-                                        new Vector3(1, 10, 0)
-                                ),
-                                new Triangle(
-                                        new Vector3(-1, 0, 0),
-                                        new Vector3(-10, 0, 0),
-                                        new Vector3(-1, 10, 0)
-                                ),
-                                new Triangle(
-                                        new Vector3(0, 0, -1),
-                                        new Vector3(0, 0, -10),
-                                        new Vector3(0, 10, -1)
-                                ),
-                                new Triangle(
-                                        new Vector3(0, 0, 1),
-                                        new Vector3(0, 0, 10),
-                                        new Vector3(0, 10, 1)
-                                )
-                        )
-//                        List.of(
-//                                new Triangle(c0, c2, c1), new Triangle(c0, c3, c2), // Front
-//                                new Triangle(c5, c7, c4), new Triangle(c5, c6, c7), // Back
-//                                new Triangle(c3, c6, c2), new Triangle(c3, c7, c6), // Top
-//                                new Triangle(c4, c1, c0), new Triangle(c4, c5, c1), // Bottom
-//                                new Triangle(c4, c3, c0), new Triangle(c4, c7, c3), // Left
-//                                new Triangle(c1, c6, c5), new Triangle(c1, c2, c6) // Right
-//                        )
-                )
-        );
+        int camera = world.createEntity("MainCamera");
+        registry.set(camera, new TransformComponent(
+                new Vector3(0, 10, -10),
+                Vector3.one(),
+                new Vector3(30, 0, 0)
+        ));
+        //fov is the other way around more -> zoom in
+        registry.set(camera, new CameraComponent(3000f, 0.1f, 45f));
+        registry.set(camera, new ActiveCameraComponent());
+
+        //debug camera movement
+        world.register((IUpdate) delta -> {
+            var cameraTransform = registry.get(camera, TransformComponent.class);
+            //position
+            if (Input.IsKeyDown(Input.KEY_A)) {
+                cameraTransform.position().x = (float) (cameraTransform.position().x + 0.01f * delta);
+            }
+            if (Input.IsKeyDown(Input.KEY_D)) {
+                cameraTransform.position().x = (float) (cameraTransform.position().x - 0.01f * delta);
+            }
+            if (Input.IsKeyDown(Input.KEY_E)) {
+                cameraTransform.position().y = (float) (cameraTransform.position().y - 0.01f * delta);
+            }
+            if (Input.IsKeyDown(Input.KEY_Q)) {
+                cameraTransform.position().y = (float) (cameraTransform.position().y + 0.01f * delta);
+            }
+            if (Input.IsKeyDown(Input.KEY_W)) {
+                cameraTransform.position().z = (float) (cameraTransform.position().z - 0.01f * delta);
+            }
+            if (Input.IsKeyDown(Input.KEY_S)) {
+                cameraTransform.position().z = (float) (cameraTransform.position().z + 0.01f * delta);
+            }
+            //rotation
+            if (Input.IsKeyDown(Input.KEY_I)) {
+                cameraTransform.rotation().x = (float) (cameraTransform.rotation().x + 0.01f * delta);
+            }
+            if (Input.IsKeyDown(Input.KEY_K)) {
+                cameraTransform.rotation().x = (float) (cameraTransform.rotation().x - 0.01f * delta);
+            }
+            if (Input.IsKeyDown(Input.KEY_J)) {
+                cameraTransform.rotation().y = (float) (cameraTransform.rotation().y - 0.01f * delta);
+            }
+            if (Input.IsKeyDown(Input.KEY_L)) {
+                cameraTransform.rotation().y = (float) (cameraTransform.rotation().y + 0.01f * delta);
+            }
+        });
 
         return world;
     }

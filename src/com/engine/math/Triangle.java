@@ -12,6 +12,6 @@ public class Triangle {
         this.v1 = v1;
         this.v2 = v2;
 
-        this.normal = Vector3.cross(v1.sub(v0), v2.sub(v0)).normalize();
+        this.normal = Vector3.cross(v1.copy().sub(v0), v2.copy().sub(v0)).normalize();
     }
 }

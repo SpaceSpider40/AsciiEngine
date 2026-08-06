@@ -2,7 +2,7 @@ package com.engine;
 
 import java.util.stream.Stream;
 
-public class Config {
+public final class Config {
 
     public final boolean isDebug;
     public final String worldsPath = "assets/worlds/";

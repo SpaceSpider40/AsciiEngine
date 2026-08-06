@@ -2,8 +2,10 @@ package com.engine.graphics;
 
 import com.engine.Debug;
 import com.engine.World;
-import com.engine.ecs.components.MeshComponent;
-import com.engine.ecs.components.TransformComponent;
+import com.engine.components.ActiveCameraComponent;
+import com.engine.components.CameraComponent;
+import com.engine.components.MeshComponent;
+import com.engine.components.TransformComponent;
 import com.engine.math.Matrix44;
 import com.engine.math.Triangle;
 import com.engine.math.Vector3;
@@ -16,8 +18,7 @@ public class AsciiRenderer implements IRenderer {
     private int width;
     private int height;
 
-    private final float ambientLight   = 0.15f;
-    private final float cameraDistance = 20f;
+    private final float ambientLight = 0.15f;
 
     private char[]  frameBuffer;
     private float[] zBuffer;
@@ -43,19 +44,30 @@ public class AsciiRenderer implements IRenderer {
     }
 
     @Override
-    public char[][] render(World world) {
+    public void render(World world) {
         clear();
 
-        var ecs = world.ecsRegistry;
+        var ecs = world.getEntityRegistry();
 
         var entities = ecs.view(
                 TransformComponent.class,
                 MeshComponent.class
         );
 
+        var cameras = ecs.view(
+                CameraComponent.class,
+                ActiveCameraComponent.class,
+                TransformComponent.class
+        );
+
+        if (cameras.isEmpty()) return;
+
+        int camera          = cameras.stream().findFirst().orElseThrow();
+        var cameraTransform = ecs.get(camera, TransformComponent.class);
+        var cameraComponent = ecs.get(camera, CameraComponent.class);
         Matrix44 viewMatrix = Matrix44.createViewMatrix(
-                new Vector3(0, 0, -20), //camera position
-                new Vector3(0, 0, -5) //camera rotation
+                cameraTransform.position(),
+                cameraTransform.rotation()
         );
 
         for (var entity : entities) {
@@ -83,12 +95,15 @@ public class AsciiRenderer implements IRenderer {
                         .mulVector(tris.normal)
                         .normalize();
 
+                //todo: fix as it works weirdly
                 //Backface culling
 //                var viewDir = w0.normalize();
 //                if (wNormal.dot(viewDir) >= 0) continue;
 
                 //near plance clipping
-                if (w0.z <= 0.1f || w1.z <= 0.1f || w2.z <= 0.1f) continue;
+                //todo: fix as it disappears entire plane, it would be better to clip it
+                if (w0.z <= cameraComponent.near() || w1.z <= cameraComponent.near() || w2.z <= cameraComponent.near())
+                    continue;
 
                 //light
                 var diffuse   = wNormal.dot(lightDirection);
@@ -96,9 +111,9 @@ public class AsciiRenderer implements IRenderer {
                 var ch        = ramp.charAt((int) (intensity * (ramp.length() - 1)));
 
                 //perspective projection
-                var p0 = project(w0);
-                var p1 = project(w1);
-                var p2 = project(w2);
+                var p0 = project(w0, cameraComponent.fov());
+                var p1 = project(w1, cameraComponent.fov());
+                var p2 = project(w2, cameraComponent.fov());
 
                 //bounding-box
                 int minX = (int) Math.max(0, Math.min(p0.x, Math.min(p1.x, p2.x)));
@@ -133,7 +148,7 @@ public class AsciiRenderer implements IRenderer {
                             if (ooz > zBuffer[bufferIdx]) {
                                 zBuffer[bufferIdx]     = ooz;
                                 frameBuffer[bufferIdx] = ch;
-                                colorBuffer[bufferIdx] = Color.RED.pack();//todo: teporary solution before materials implementaion
+                                colorBuffer[bufferIdx] = Color.WHITE.pack();//todo: teporary solution before materials implementaion
                             }
                         }
                     }
@@ -143,9 +158,6 @@ public class AsciiRenderer implements IRenderer {
         }
 
         // LAYER 1 - INTERFACE
-
-
-
 
 
         // LAYER 2 - DEBUG
@@ -170,7 +182,6 @@ public class AsciiRenderer implements IRenderer {
             messageY++;
         }
 
-        //todo: investigate something faster and more memory performant than string builder
         //DRAW
         StringBuilder sb = new StringBuilder(width * height);
         for (int i = 0; i < width * height; i++) {
@@ -197,14 +208,14 @@ public class AsciiRenderer implements IRenderer {
         System.out.print(sb);
         System.out.flush();
 
-        return new char[0][];
+        return;
     }
 
-    private Vector3 project(Vector3 cameraSpace) {
+    private Vector3 project(Vector3 cameraSpace, float fov) {
         var ooz = 1.0f / (cameraSpace.z);
         return new Vector3(
-                (width / 2.0f + (45f * 2.2f) * cameraSpace.x * ooz),
-                (height / 2.0f - 45f * cameraSpace.y * ooz),
+                (width / 2.0f + (fov * 2.2f) * cameraSpace.x * ooz),
+                (height / 2.0f - fov * cameraSpace.y * ooz),
                 cameraSpace.z
         );
     }

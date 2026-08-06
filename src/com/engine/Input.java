@@ -5,11 +5,38 @@ import java.io.InputStream;
 import java.util.Set;
 import java.util.concurrent.ConcurrentHashMap;
 
-public class Input {
+public final class Input {
 
-    private static final Set<Integer> keysDown = ConcurrentHashMap.newKeySet();
+    public static final int KEY_A = 97;
+    public static final int KEY_B = 98;
+    public static final int KEY_C = 99;
+    public static final int KEY_D = 100;
+    public static final int KEY_E = 101;
+    public static final int KEY_F = 102;
+    public static final int KEY_G = 103;
+    public static final int KEY_H = 104;
+    public static final int KEY_I = 105;
+    public static final int KEY_J = 106;
+    public static final int KEY_K = 107;
+    public static final int KEY_L = 108;
+    public static final int KEY_M = 109;
+    public static final int KEY_N = 110;
+    public static final int KEY_O = 111;
+    public static final int KEY_P = 112;
+    public static final int KEY_Q = 113;
+    public static final int KEY_R = 114;
+    public static final int KEY_S = 115;
+    public static final int KEY_T = 116;
+    public static final int KEY_U = 117;
+    public static final int KEY_V = 118;
+    public static final int KEY_W = 119;
+    public static final int KEY_X = 120;
+    public static final int KEY_Y = 121;
+    public static final int KEY_Z = 122;
+
+    private static final Set<Integer> keysDown     = ConcurrentHashMap.newKeySet();
     private static final Set<Integer> keysJustDown = ConcurrentHashMap.newKeySet();
-    private static final Set<Integer> keysJustUp = ConcurrentHashMap.newKeySet();
+    private static final Set<Integer> keysJustUp   = ConcurrentHashMap.newKeySet();
 
     private static final int KEY_INPUT_BUFFER_SIZE = 256;
 
@@ -46,8 +73,8 @@ public class Input {
         //parse inputs
         InputStream input = System.in;
 
-        byte[] buffer = new byte[KEY_INPUT_BUFFER_SIZE];
-        int bytesRead = 0;
+        byte[] buffer    = new byte[KEY_INPUT_BUFFER_SIZE];
+        int    bytesRead = 0;
         try {
             if (input.available() > 0) {
                 bytesRead = input.read(buffer);
@@ -58,10 +85,10 @@ public class Input {
         }
         if (bytesRead <= 0) return;
 
-        String seq = new String(buffer, 0, bytesRead);
-
-        // Parse Kitty escape sequence: \033[ <key> ; <mods> : <event_type> u
-        parseKittyEvent(seq);
+        String[] sequences = new String(buffer, 0, bytesRead).split("(?=\033)");
+        for (String seq : sequences) {
+            parseKittyEvent(seq);
+        }
     }
 
     static void clean() {
@@ -86,21 +113,27 @@ public class Input {
 
         if (eventType == 2) return;
 
-        String keyAndMods = parts[0];
+        String   keyAndMods = parts[0];
         String[] keyDetails = keyAndMods.split(";");
-        String key = keyDetails[0];
 
-        Debug.log(key);
+        int keyCode;
+        try {
+            keyCode = Integer.parseInt(keyDetails[0]);
+        } catch (NumberFormatException e) {
+            return;
+        }
 
         if (eventType == 3) {
-            keysDown.remove(Integer.valueOf(key));
-        } else {
-            keysDown.add(Integer.valueOf(key));
+            if (keysDown.remove(keyCode)) {
+                keysJustUp.add(keyCode);
+            }
+        }
+        if (eventType == 1) {
+            boolean isInitialPress = keysDown.add(keyCode);
+
+            if (isInitialPress) {
+                keysJustDown.add(keyCode);
+            }
         }
     }
-
-    private static String escapeString(String str) {
-        return str.replace("\033", "\\e");
-    }
-
 }

@@ -7,6 +7,11 @@ public class Vector3 {
     public float y;
     public float z;
 
+    public static Vector3[] axes = new Vector3[]
+            {
+                    right(), up(), forward()
+            };
+
     public Vector3(float x, float y, float z) {
         this.x = x;
         this.y = y;
@@ -31,6 +36,18 @@ public class Vector3 {
 
     public static Vector3 one() {
         return new Vector3(1, 1, 1);
+    }
+
+    public static Vector3 right() {
+        return new Vector3(1, 0, 0);
+    }
+
+    public static Vector3 up() {
+        return new Vector3(0, 1, 0);
+    }
+
+    public static Vector3 forward() {
+        return new Vector3(0, 0, 1);
     }
 
     public static Vector3 cross(Vector3 a, Vector3 b) {
@@ -99,8 +116,24 @@ public class Vector3 {
         return new Vector3(x / length, y / length, z / length);
     }
 
-    public float dot(Vector3 other){
+    public float dot(Vector3 other) {
         return x * other.x + y * other.y + z * other.z;
+    }
+
+    public double distance(Vector3 other) {
+        return Math.sqrt(
+                Math.pow(other.x - this.x, 2) +
+                        Math.pow(other.y + this.y, 2) +
+                        Math.pow(other.z + this.z, 2)
+        );
+    }
+
+    public float length() {
+        return (float) Math.sqrt(x * x + y * y + z * z);
+    }
+
+    public float lengthSquared() {
+        return x * x + y * y + z * z;
     }
 
     @Override

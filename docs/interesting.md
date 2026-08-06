@@ -1,1 +1,2 @@
-https://viewsourcecode.org/snaptoken/kilo/02.enteringRawMode.html
+- https://viewsourcecode.org/snaptoken/kilo/02.enteringRawMode.html
+- https://plindenbaum.blogspot.com/2008/01/java-native-interface-jni-notebook.html

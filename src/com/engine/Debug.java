@@ -10,7 +10,7 @@ import java.util.concurrent.atomic.AtomicLong;
 /*
  * Display debug messages on screen. Engine errors or user defined messages.
  */
-public class Debug {
+public final class Debug {
     public record Message(
             String msg,
             Color color
