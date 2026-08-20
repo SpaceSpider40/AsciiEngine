@@ -31,19 +31,19 @@ public record TransformComponent(
                 cosY * cosR + sinY * sinP * sinR,
                 cosP * sinR,
                 -sinY * cosR + cosY * sinP * sinR
-        ).normalize();
+        ).normalized();
 
         Vector3 up = new Vector3(
                 -cosY * sinR + sinY * sinP * cosR,
                 cosP * cosR,
                 sinY * sinR + cosY * sinP * sinR
-        ).normalize();
+        ).normalized();
 
         Vector3 forward = new Vector3(
                 sinY * cosP,
                 -sinP,
                 cosY * cosP
-        ).normalize();
+        ).normalized();
 
         return new Vector3[]{right, up, forward};
     }

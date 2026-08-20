@@ -1,10 +1,12 @@
 import com.engine.*;
+import com.engine.components.MaterialComponent;
 import com.engine.components.MeshComponent;
 import com.engine.components.TransformComponent;
 import com.engine.components.physics.BoxColliderComponent;
 import com.engine.components.physics.GravityComponent;
-import com.engine.components.physics.VelocityComponent;
+import com.engine.components.physics.RigidbodyComponent;
 import com.engine.ecs.systems.EcsSystem;
+import com.engine.graphics.Color;
 import com.engine.math.Plane;
 import com.engine.math.Vector3;
 
@@ -13,7 +15,6 @@ public class Main {
         var engine = new Engine();
         engine.init(args);
 
-        engine.start();
 
         Thread.sleep(1000);
 
@@ -44,16 +45,16 @@ public class Main {
                 new BoxColliderComponent(new Vector3(50, 1, 50))
         );
 
-        spawnBox(world, new  Vector3(0, 10, 0));
-        spawnBox(world, new  Vector3(0, 20, 0));
-        spawnBox(world, new  Vector3(0, 30, 0));
-        spawnBox(world, new  Vector3(0, 40, 0));
-        spawnBox(world, new  Vector3(0, 50, 0));
-        spawnBox(world, new  Vector3(0, 60, 0));
-        spawnBox(world, new  Vector3(0, 70, 0));
-        spawnBox(world, new  Vector3(0, 80, 0));
-        spawnBox(world, new  Vector3(0, 90, 0));
-        spawnBox(world, new  Vector3(0, 100, 0));
+        spawnBox(world, new  Vector3(0, 10, 0), randomColor());
+        spawnBox(world, new  Vector3(1, 20, 0), randomColor());
+        spawnBox(world, new  Vector3(2, 30, 0), randomColor());
+        spawnBox(world, new  Vector3(3, 40, 0), randomColor());
+        spawnBox(world, new  Vector3(4, 50, 0), randomColor());
+        spawnBox(world, new  Vector3(5, 60, 0), randomColor());
+        spawnBox(world, new  Vector3(6, 70, 0), randomColor());
+        spawnBox(world, new  Vector3(7, 80, 0), randomColor());
+        spawnBox(world, new  Vector3(8, 90, 0), randomColor());
+        spawnBox(world, new  Vector3(9, 100, 0), randomColor());
 
         var system = new EcsSystem() {
             @Override
@@ -70,9 +71,17 @@ public class Main {
         engine.worldManager.getCurrentWorld().register((IUpdate) system);
 
         Debug.log("Box spawned");
+
+        engine.start();
     }
 
-    private static int spawnBox(World world, Vector3 position) {
+    private static Color randomColor(){
+        Color[] colors = {Color.RED, Color.GREEN, Color.BLUE, Color.WHITE, Color.YELLOW};
+
+        return colors[(int) (Math.random() * colors.length)];
+    }
+
+    private static int spawnBox(World world, Vector3 position, Color color) {
         int box = world.createEntity("box");
         world.getEntityRegistry().set(box, MeshFactory.createBox(Vector3.one()));
         world.getEntityRegistry().set(box, new TransformComponent(
@@ -86,11 +95,15 @@ public class Main {
         );
         world.getEntityRegistry().set(
                 box,
-                new VelocityComponent(Vector3.zero())
+                new RigidbodyComponent(Vector3.zero(), .4f)
         );
         world.getEntityRegistry().set(
                 box,
                 new BoxColliderComponent(new Vector3(1, 1, 1))
+        );
+        world.getEntityRegistry().set(
+                box,
+                new MaterialComponent(color, 1)
         );
         return box;
     }

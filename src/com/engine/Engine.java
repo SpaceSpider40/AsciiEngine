@@ -15,7 +15,7 @@ public final class Engine extends Thread {
 
     public final WorldManager worldManager = new WorldManager();
 
-    private static final float TPS = 1.0f / 60;
+    private static final float TPS = 1.0f / 60f;
     private static final float FPS = 1.0f / 60f; //0.08f
 
     private double deltaTime = 0;
@@ -36,7 +36,6 @@ public final class Engine extends Thread {
             return;
         }
 
-        System.out.print("\033]2;Cons\033\\");//todo: change to title
         System.out.print("\033[?25l");
         System.out.print("\033[1;1H");
         System.out.print("\033[0J");
@@ -57,6 +56,10 @@ public final class Engine extends Thread {
         physics = new Physics(this, 0.00000001f);//9.86f
 
         isInitialized = true;
+    }
+
+    public void setProjectTitle(String title) {
+        System.out.print("\033]2;" + title + "\033\\");
     }
 
     public void run() {
@@ -95,6 +98,8 @@ public final class Engine extends Thread {
     private void update() {
         Input.update();
 
+        if (Input.IsKeyDown(Input.KEY_X)) this.interrupt();//todo: temp exit key
+
         worldManager.getCurrentWorld().update(deltaTime);
 
         renderer.render(worldManager.getCurrentWorld());
@@ -107,5 +112,9 @@ public final class Engine extends Thread {
 
     private void cleanup() {
         Input.clean();
+
+        System.out.print("\033[?25h");//show cursor
+        System.out.print("\033[1;1H");//move
+        System.out.print("\033[0J");//clear
     }
 }

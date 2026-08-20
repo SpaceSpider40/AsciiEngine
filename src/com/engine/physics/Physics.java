@@ -4,12 +4,14 @@ import com.engine.Engine;
 import com.engine.components.TransformComponent;
 import com.engine.components.physics.BoxColliderComponent;
 import com.engine.components.physics.GravityComponent;
-import com.engine.components.physics.VelocityComponent;
+import com.engine.components.physics.RigidbodyComponent;
+import com.engine.ecs.EcsRegister;
 import com.engine.math.Vector3;
 
 import java.util.ArrayList;
 import java.util.List;
 
+//todo: mass
 public class Physics implements IPhysics {
     public final float gravity;
 
@@ -26,17 +28,32 @@ public class Physics implements IPhysics {
         }
     }
 
+    @Override
     public void update(double delta) {
         collisionEvents.clear();
 
         applyGravity(delta);
-        resolveCollisions();
-
         applyVelocity();
+        resolveCollisions();
+    }
+
+    @Override
+    public void applyForce() {
+
+    }
+
+    @Override
+    public void applyImpulse() {
+
+    }
+
+    @Override
+    public void applyTorque() {
+
     }
 
     private void resolveCollisions() {
-        var ecs = engine.worldManager.getCurrentWorld().getEntityRegistry();
+        var ecs = getEcs();
 
         //todo: this is narrow pass, implement Bounding Volume Hierarchy before this.
         var entities = ecs.view(
@@ -60,28 +77,17 @@ public class Physics implements IPhysics {
                     continue; //bounding spheres don't touch skip
                 }
 
-                if (checkOBBCollision(tA, cA, tB, cB)) {
+                CollisionManifold manifold = checkOBBCollision(tA, cA, tB, cB);
+                if (manifold.colliding) {
                     collisionEvents.add(new int[]{entI, entJ});
 
-                    if (ecs.has(entI, VelocityComponent.class)){
-                        var vel = ecs.get(entI, VelocityComponent.class).velocity();
-                        vel.x = 0;
-                        vel.y = 0;
-                        vel.z = 0;
-                    }
-                    if (ecs.has(entJ, VelocityComponent.class)){
-                        var vel = ecs.get(entJ, VelocityComponent.class).velocity();
-                        vel.x = 0;
-                        vel.y = 0;
-                        vel.z = 0;
-                    }
-                    //todo: apply velocity patch
+                    resolveCollisionResponse(entI, entJ, tA, tB, manifold);
                 }
             }
         }
     }
 
-    private boolean checkOBBCollision(
+    private CollisionManifold checkOBBCollision(
             TransformComponent tA, BoxColliderComponent cA,
             TransformComponent tB, BoxColliderComponent cB
     ) {
@@ -89,64 +95,68 @@ public class Physics implements IPhysics {
         Vector3[] axesA = tA.getLocalAxes();
         Vector3[] axesB = tB.getLocalAxes();
 
-        Vector3 d = tB.position().copy().sub(tA.position());
+        Vector3 centerDelta = tB.position().copy().sub(tA.position());
 
-        float t0 = d.dot(axesA[0]);
-        float t1 = d.dot(axesA[1]);
-        float t2 = d.dot(axesB[2]);
-
-        float[][] r    = new float[3][3];
-        float[][] absR = new float[3][3];
-        float     eps  = 1e-6f;
+        CollisionManifoldBuilder manifold = new CollisionManifoldBuilder();
 
         for (int i = 0; i < 3; i++) {
-            for (int j = 0; j < 3; j++) {
-                r[i][j]    = axesA[i].dot(axesB[j]);
-                absR[i][j] = Math.abs(r[i][j]) + eps;
+            if (!testOBBAxis(
+                    axesA[i],
+                    centerDelta,
+                    axesA,
+                    cA,
+                    axesB,
+                    cB,
+                    manifold
+            )) {
+                return CollisionManifold.none();
             }
         }
 
-        // A local axes
-        if (Math.abs(t0) > cA.halfExtents().x + (cB.halfExtents().x * absR[0][0] + cB.halfExtents().y * absR[0][1] + cB.halfExtents().z * absR[0][2]))
-            return false;
-        if (Math.abs(t1) > cA.halfExtents().y + (cB.halfExtents().x * absR[1][0] + cB.halfExtents().y * absR[1][1] + cB.halfExtents().z * absR[1][2]))
-            return false;
-        if (Math.abs(t2) > cA.halfExtents().z + (cB.halfExtents().x * absR[2][0] + cB.halfExtents().y * absR[2][1] + cB.halfExtents().z * absR[2][2]))
-            return false;
+        for (int i = 0; i < 3; i++) {
+            if (!testOBBAxis(
+                    axesB[i],
+                    centerDelta,
+                    axesA,
+                    cA,
+                    axesB,
+                    cB,
+                    manifold
+            )) {
+                return CollisionManifold.none();
+            }
+        }
 
-        // B local axes
-        if (Math.abs(t0 * r[0][0] + t1 * r[1][0] + t2 * r[2][0]) > (cA.halfExtents().x * absR[0][0] + cA.halfExtents().y * absR[1][0] + cA.halfExtents().z * absR[2][0]) + cB.halfExtents().x)
-            return false;
-        if (Math.abs(t0 * r[0][1] + t1 * r[1][1] + t2 * r[2][1]) > (cA.halfExtents().x * absR[0][1] + cA.halfExtents().y * absR[1][1] + cA.halfExtents().z * absR[2][1]) + cB.halfExtents().y)
-            return false;
-        if (Math.abs(t0 * r[0][2] + t1 * r[1][2] + t2 * r[2][2]) > (cA.halfExtents().x * absR[0][2] + cA.halfExtents().y * absR[1][2] + cA.halfExtents().z * absR[2][2]) + cB.halfExtents().z)
-            return false;
+        for (int i = 0; i < 3; i++) {
+            for (int j = 0; j < 3; j++) {
+                Vector3 crossAxis = Vector3.cross(axesA[i], axesB[j]);
 
-        //cross-product axes
-        if (Math.abs(t2 * r[1][0] - t1 * r[2][0]) > (cA.halfExtents().y * absR[2][0] + cA.halfExtents().z * absR[1][0]) + (cB.halfExtents().y * absR[0][2] + cB.halfExtents().z * absR[0][1]))
-            return false;
-        if (Math.abs(t2 * r[1][1] - t1 * r[2][1]) > (cA.halfExtents().y * absR[2][1] + cA.halfExtents().z * absR[1][1]) + (cB.halfExtents().x * absR[0][2] + cB.halfExtents().z * absR[0][0]))
-            return false;
-        if (Math.abs(t2 * r[1][2] - t1 * r[2][2]) > (cA.halfExtents().y * absR[2][2] + cA.halfExtents().z * absR[1][2]) + (cB.halfExtents().x * absR[0][1] + cB.halfExtents().y * absR[0][0]))
-            return false;
+                if (crossAxis.lengthSquared() < 0.000001f)
+                    continue;
 
-        if (Math.abs(t0 * r[2][0] - t2 * r[0][0]) > (cA.halfExtents().x * absR[2][0] + cA.halfExtents().z * absR[0][0]) + (cB.halfExtents().y * absR[1][2] + cB.halfExtents().z * absR[1][1]))
-            return false;
-        if (Math.abs(t0 * r[2][1] - t2 * r[0][1]) > (cA.halfExtents().x * absR[2][1] + cA.halfExtents().z * absR[0][1]) + (cB.halfExtents().x * absR[1][2] + cB.halfExtents().z * absR[1][0]))
-            return false;
-        if (Math.abs(t0 * r[2][2] - t2 * r[0][2]) > (cA.halfExtents().x * absR[2][2] + cA.halfExtents().z * absR[0][2]) + (cB.halfExtents().x * absR[1][1] + cB.halfExtents().y * absR[1][0]))
-            return false;
+                crossAxis = crossAxis.normalized();
 
-        if (Math.abs(t1 * r[0][0] - t0 * r[1][0]) > (cA.halfExtents().x * absR[1][0] + cA.halfExtents().y * absR[0][0]) + (cB.halfExtents().y * absR[2][2] + cB.halfExtents().z * absR[2][1]))
-            return false;
-        if (Math.abs(t1 * r[0][1] - t0 * r[1][1]) > (cA.halfExtents().x * absR[1][1] + cA.halfExtents().y * absR[0][1]) + (cB.halfExtents().x * absR[2][2] + cB.halfExtents().z * absR[2][0]))
-            return false;
-        if (Math.abs(t1 * r[0][2] - t0 * r[1][2]) > (cA.halfExtents().x * absR[1][2] + cA.halfExtents().y * absR[0][2]) + (cB.halfExtents().x * absR[2][1] + cB.halfExtents().y * absR[2][0]))
-            return false;
+                if (!testOBBAxis(
+                        crossAxis,
+                        centerDelta,
+                        axesA,
+                        cA,
+                        axesB,
+                        cB,
+                        manifold
+                )) {
+                    return CollisionManifold.none();
+                }
+            }
+        }
 
-        var cross = Vector3.cross(tB.position(), tA.position());
+        Vector3 normal = manifold.normal;
 
-        return true;
+        if (normal.dot(centerDelta) < 0) {
+            normal.mul(-1);
+        }
+
+        return new CollisionManifold(true, normal, manifold.penetration);
     }
 
     public List<int[]> getCollisions() {
@@ -154,10 +164,10 @@ public class Physics implements IPhysics {
     }
 
     private void applyGravity(double delta) {
-        var ecs = engine.worldManager.getCurrentWorld().getEntityRegistry();
+        var ecs = getEcs();
 
         var entities = ecs.view(
-                VelocityComponent.class,
+                RigidbodyComponent.class,
                 GravityComponent.class
         );
 
@@ -166,25 +176,167 @@ public class Physics implements IPhysics {
 
             if (gravityComponent == null || !gravityComponent.hasGravity()) continue;
 
-            var velocityComponent = ecs.get(entity, VelocityComponent.class);
+            var rigidbodyComponent = ecs.get(entity, RigidbodyComponent.class);
 
-            velocityComponent.velocity().y += (float) (gravity * delta);
+            rigidbodyComponent.velocity().y += (float) (gravity * delta);
         }
     }
 
     private void applyVelocity() {
-        var ecs = engine.worldManager.getCurrentWorld().getEntityRegistry();
+        var ecs = getEcs();
 
         var entities = ecs.view(
-                VelocityComponent.class,
+                RigidbodyComponent.class,
                 TransformComponent.class
         );
 
         for (int entity : entities) {
-            var velocityComponent  = ecs.get(entity, VelocityComponent.class);
+            var rigidbodyComponent = ecs.get(entity, RigidbodyComponent.class);
             var transformComponent = ecs.get(entity, TransformComponent.class);
 
-            transformComponent.position().add(velocityComponent.velocity());
+            transformComponent.position().add(rigidbodyComponent.velocity());
+        }
+    }
+
+    private void resolveCollisionResponse(
+            int entA,
+            int entB,
+            TransformComponent tA,
+            TransformComponent tB,
+            CollisionManifold manifold
+    ) {
+        var ecs = getEcs();
+
+        boolean hasBodyA = ecs.has(entA, RigidbodyComponent.class);
+        boolean hasBodyB = ecs.has(entB, RigidbodyComponent.class);
+
+        correctPositions(
+                tA, tB,
+                manifold.normal,
+                manifold.penetration,
+                hasBodyA,
+                hasBodyB
+        );
+
+        //resolve bounciness and sliding
+        if (hasBodyA) {
+            var rigidbody = ecs.get(entA, RigidbodyComponent.class);
+
+            Vector3 oppositeNormal = manifold.normal.copy().mul(-1);
+            resolveVelocityResponse(oppositeNormal, rigidbody);
+        }
+
+        if (hasBodyB) {
+            var rigidbody = ecs.get(entB, RigidbodyComponent.class);
+
+            resolveVelocityResponse(manifold.normal, rigidbody);
+        }
+    }
+
+    private void resolveVelocityResponse(Vector3 normal, RigidbodyComponent rigidbody) {
+        float velocityAlongNormal = rigidbody.velocity().dot(normal);
+
+        if (velocityAlongNormal > 0) {
+            return;
+        }
+
+        float bounciness = rigidbody.bounciness();
+
+//        if (Math.abs(velocityAlongNormal) < 0.05f){
+//            bounciness = 0.0f;
+//        }
+
+        Vector3 normalVelocity  = normal.copy().mul(velocityAlongNormal);
+        Vector3 tangentVelocity = rigidbody.velocity().copy().sub(normalVelocity);
+
+        Vector3 bouncedVelocity = normal.copy().mul(-velocityAlongNormal * bounciness);
+
+        rigidbody.velocity().set(tangentVelocity.add(bouncedVelocity));
+    }
+
+    private boolean testOBBAxis(
+            Vector3 axis,
+            Vector3 centerDelta,
+            Vector3[] axesA,
+            BoxColliderComponent cA,
+            Vector3[] axesB,
+            BoxColliderComponent cB,
+            CollisionManifoldBuilder manifold
+    ) {
+        float radiusA = projectOBBRadius(axis, axesA, cA);
+        float radiusB = projectOBBRadius(axis, axesB, cB);
+
+        float distance = Math.abs(centerDelta.dot(axis));
+        float overlap  = radiusA + radiusB - distance;
+
+        if (overlap <= 0) {
+            return false;
+        }
+
+        if (overlap < manifold.penetration) {
+            manifold.penetration = overlap;
+            manifold.normal      = axis.copy();
+        }
+
+        return true;
+    }
+
+    private float projectOBBRadius(
+            Vector3 axis,
+            Vector3[] boxAxes,
+            BoxColliderComponent collider
+    ) {
+        //todo: mul halfextents by scale
+        var he = collider.halfExtents();
+
+        return he.x * Math.abs(axis.dot(boxAxes[0])) + he.y * Math.abs(axis.dot(boxAxes[1])) + he.z * Math.abs(axis.dot(boxAxes[2]));
+    }
+
+    private void correctPositions(
+            TransformComponent tA,
+            TransformComponent tB,
+            Vector3 normal,
+            float penetration,
+            boolean hasBodyA,
+            boolean hasBodyB
+    ) {
+        float slop              = 0.001f;
+        float correctionPercent = 0.8f;
+
+        float correctionAmount = Math.max(penetration - slop, 0.0f) * correctionPercent;
+
+        if (correctionAmount <= 0) {
+            return;
+        }
+
+        Vector3 correction = normal.copy().mul(correctionAmount);
+
+        if (hasBodyA && hasBodyB) {
+            tA.position().sub(correction.copy().mul(0.5f));
+            tB.position().add(correction.copy().mul(0.5f));
+        } else if (hasBodyA) {
+            tA.position().sub(correction);
+        } else if (hasBodyB) {
+            tB.position().add(correction);
+        }
+    }
+
+    private EcsRegister getEcs() {
+        return engine.worldManager.getCurrentWorld().getEntityRegistry();
+    }
+
+    private static class CollisionManifoldBuilder {
+        private Vector3 normal      = Vector3.zero();
+        private float   penetration = Float.MAX_VALUE;
+    }
+
+    private record CollisionManifold(
+            boolean colliding,
+            Vector3 normal,
+            float penetration
+    ) {
+        public static CollisionManifold none() {
+            return new CollisionManifold(false, null, 0);
         }
     }
 }

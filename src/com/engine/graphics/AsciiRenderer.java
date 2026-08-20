@@ -2,10 +2,7 @@ package com.engine.graphics;
 
 import com.engine.Debug;
 import com.engine.World;
-import com.engine.components.ActiveCameraComponent;
-import com.engine.components.CameraComponent;
-import com.engine.components.MeshComponent;
-import com.engine.components.TransformComponent;
+import com.engine.components.*;
 import com.engine.math.Matrix44;
 import com.engine.math.Triangle;
 import com.engine.math.Vector3;
@@ -25,7 +22,7 @@ public class AsciiRenderer implements IRenderer {
     private int[]   colorBuffer;
 
     private final String  ramp           = ".,-~:;=!*#$@";
-    private final Vector3 lightDirection = new Vector3(1.0f, -2.0f, -1.5f).normalize();
+    private final Vector3 lightDirection = new Vector3(1.0f, -2.0f, -1.5f).normalized();
 
     @Override
     public void init(
@@ -93,7 +90,7 @@ public class AsciiRenderer implements IRenderer {
                 //todo: the proper graphics engineering fix is to transform your normals using the transpose of the inverse of the model matrix
                 var wNormal = modelMatrix
                         .mulVector(tris.normal)
-                        .normalize();
+                        .normalized();
 
                 //todo: fix as it works weirdly
                 //Backface culling
@@ -148,7 +145,13 @@ public class AsciiRenderer implements IRenderer {
                             if (ooz > zBuffer[bufferIdx]) {
                                 zBuffer[bufferIdx]     = ooz;
                                 frameBuffer[bufferIdx] = ch;
-                                colorBuffer[bufferIdx] = Color.WHITE.pack();//todo: teporary solution before materials implementaion
+
+                                //colors todo: add shading
+                                if (ecs.has(entity, MaterialComponent.class)){
+                                    colorBuffer[bufferIdx] = ecs.get(entity, MaterialComponent.class).albedo().pack();
+                                } else {
+                                    colorBuffer[bufferIdx] = Color.MAGENTA.pack();
+                                }
                             }
                         }
                     }
@@ -188,6 +191,7 @@ public class AsciiRenderer implements IRenderer {
 
             int color = colorBuffer[i];
 
+            //todo: optimise by not repeating same commands
             sb
                     //position
                     .append("\033[")
@@ -207,8 +211,6 @@ public class AsciiRenderer implements IRenderer {
         }
         System.out.print(sb);
         System.out.flush();
-
-        return;
     }
 
     private Vector3 project(Vector3 cameraSpace, float fov) {

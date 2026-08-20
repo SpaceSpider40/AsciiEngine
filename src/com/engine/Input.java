@@ -93,6 +93,18 @@ public final class Input {
 
     static void clean() {
         //restore terminal
+        try {
+            System.out.print("\033[<u");
+            System.out.flush();
+
+            if (Engine.isWindows){
+                new ProcessBuilder("cmd", "/c", "stty cooked echo").inheritIO().start().waitFor();
+            }else{
+                String[] cmd = {"/bin/sh", "-c", "stty cooked echo < /dev/tty"};
+
+                new ProcessBuilder(cmd).start().waitFor();
+            }
+        }catch (Exception ignored){}
     }
 
     private static void parseKittyEvent(String seq) {

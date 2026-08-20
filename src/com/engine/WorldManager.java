@@ -30,7 +30,7 @@ public class WorldManager {
                 new Vector3(30, 0, 0)
         ));
         //fov is the other way around more -> zoom in
-        registry.set(camera, new CameraComponent(3000f, 0.1f, 45f));
+        registry.set(camera, new CameraComponent(3000f, 0.01f, 45f));
         registry.set(camera, new ActiveCameraComponent());
 
         //debug camera movement

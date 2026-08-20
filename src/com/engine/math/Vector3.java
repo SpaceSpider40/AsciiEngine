@@ -58,6 +58,13 @@ public class Vector3 {
         );
     }
 
+    public Vector3 set(Vector3 other) {
+        this.x = other.x;
+        this.y = other.y;
+        this.z = other.z;
+        return this;
+    }
+
     public Vector3 copy() {
         return new Vector3(this);
     }
@@ -94,24 +101,44 @@ public class Vector3 {
         float rad = (float) Math.toRadians(angle);
         float cos = (float) Math.cos(rad);
         float sin = (float) Math.sin(rad);
-        return new Vector3(x, y * cos - z * sin, y * sin + z * cos);
+        float _y = y;
+        float _z = z;
+        y = _y * cos - _z * sin;
+        z = _y * sin + _z * cos;
+        return this;
     }
 
     public Vector3 rotateY(float angle) {
         float rad = (float) Math.toRadians(angle);
         float cos = (float) Math.cos(rad);
         float sin = (float) Math.sin(rad);
-        return new Vector3(x * cos + z * sin, y, -x * sin + z * cos);
+        float _x = x;
+        float _z = z;
+        x = _x * cos + _z * sin;
+        z = -_x * sin + _z * cos;
+        return this;
     }
 
     public Vector3 rotateZ(float angle) {
         float rad = (float) Math.toRadians(angle);
         float cos = (float) Math.cos(rad);
         float sin = (float) Math.sin(rad);
-        return new Vector3(x * cos - y * sin, x * sin + y * cos, z);
+        float _x = x;
+        float _y = y;
+        x = _x * cos - _y * sin;
+        y = _x * sin + _y * cos;
+        return this;
     }
 
-    public Vector3 normalize() {
+    public Vector3 normalize(){
+        float length = (float) Math.sqrt(x * x + y * y + z * z);
+        x = x / length;
+        y = y / length;
+        z = z / length;
+        return this;
+    }
+
+    public Vector3 normalized() {
         float length = (float) Math.sqrt(x * x + y * y + z * z);
         return new Vector3(x / length, y / length, z / length);
     }
