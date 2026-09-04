@@ -5,6 +5,12 @@ import java.util.Arrays;
 public class Triangle {
     public final float[] verts;
 
+    private float normalX;
+    private float normalY;
+    private float normalZ;
+
+    private boolean normalDirty = true;
+
     public Triangle() {
         this.verts = new float[9];
 
@@ -27,37 +33,50 @@ public class Triangle {
         this(v0.asFloats(), v1.asFloats(), v2.asFloats());
     }
 
-    public float[] v0() {
-        return Arrays.copyOfRange(verts, 0, 3);
+    public float getNormalX(){
+        normal();
+        return normalX;
     }
 
-    public float[] v1() {
-        return Arrays.copyOfRange(verts, 3, 6);
+    public float getNormalY(){
+        normal();
+        return normalY;
     }
 
-    public float[] v2() {
-        return Arrays.copyOfRange(verts, 6, 9);
+    public float getNormalZ(){
+        normal();
+        return normalZ;
     }
 
-    public Vector3 normal() {
-        var v0 = new Vector3(v0());
-        var v1 = new Vector3(v1());
-        var v2 = new Vector3(v2());
+    public void normal(){
+        if (normalDirty){
+            float ax = verts[3] - verts[0];
+            float ay = verts[4] - verts[1];
+            float az = verts[5] - verts[2];
 
-        return Vector3.cross(v1.sub(v0), v2.sub(v0)).normalize();
+            float bx = verts[6] - verts[0];
+            float by = verts[7] - verts[1];
+            float bz = verts[8] - verts[2];
+
+            float nx = ay * bz - az * by;
+            float ny = az * bx - ax * bz;
+            float nz = ax * by - ay * bx;
+
+            float lengthSquared = nx * nx + ny * ny + nz * nz;
+
+            if (lengthSquared == 0.0f) {
+                normalX = 0.0f;
+                normalY = 0.0f;
+                normalZ = 0.0f;
+            } else {
+                float invLength = 1.0f / (float) Math.sqrt(lengthSquared);
+
+                normalX = nx * invLength;
+                normalY = ny * invLength;
+                normalZ = nz * invLength;
+            }
+
+            normalDirty = false;
+        }
     }
 }
-// public final Vector3 v1;
-// public final Vector3 v2;
-//
-// public final Vector3 normal;
-//
-// public Triangle(Vector3 v0, Vector3 v1, Vector3 v2) {
-// this.v0 = v0;
-// this.v1 = v1;
-// this.v2 = v2;
-//
-// this.normal = Vector3.cross(v1.copy().sub(v0),
-// v2.copy().sub(v0)).normalized();
-// }
-// }

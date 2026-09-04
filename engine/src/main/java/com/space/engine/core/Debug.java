@@ -17,7 +17,8 @@ public final class Debug {
     ) {
     }
 
-    public static final long DISPLAY_TIME = 5000000000L;
+//    public static final long DISPLAY_TIME = 5000000000L;
+    public static final long DISPLAY_TIME = 100_000L;
 
     private static final ConcurrentSkipListMap<Long, Message> messages      = new ConcurrentSkipListMap<>();
     private static final AtomicLong                           lastTimestamp = new AtomicLong();

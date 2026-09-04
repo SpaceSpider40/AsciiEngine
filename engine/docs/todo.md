@@ -1,0 +1,1 @@
+Still too many allocations. Especially math that is called each frame for each object. Move to static arrays. Reduce vector usage use float arrays. Vector.toFloat() is a trap creating new float[3] is painfully slow.

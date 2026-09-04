@@ -45,11 +45,11 @@ public class Matrix44 {
         return new Vector3(x, y, z);
     }
 
-    public Vector3 mulPoint(float[] verts) {
-        float x = m[0] * verts[0] + m[1] * verts[1] + m[2] * verts[2] + m[3];
-        float y = m[4] * verts[0] + m[5] * verts[1] + m[6] * verts[2] + m[7];
-        float z = m[8] * verts[0] + m[9] * verts[1] + m[10] * verts[2] + m[11];
-        float w = m[12] * verts[0] + m[13] * verts[1] + m[14] * verts[2] + m[15];
+    public Vector3 mulPoint(float[] vec) {
+        float x = m[0] * vec[0] + m[1] * vec[1] + m[2] * vec[2] + m[3];
+        float y = m[4] * vec[0] + m[5] * vec[1] + m[6] * vec[2] + m[7];
+        float z = m[8] * vec[0] + m[9] * vec[1] + m[10] * vec[2] + m[11];
+        float w = m[12] * vec[0] + m[13] * vec[1] + m[14] * vec[2] + m[15];
 
         if (Math.abs(w - 1) > 0.0001f && Math.abs(w) > 0.0001f) {
             x /= w;
@@ -57,6 +57,22 @@ public class Matrix44 {
             z /= w;
         }
         return new Vector3(x, y, z);
+    }
+
+    public void mulPoint(float[] inVec, float[] outVec) {
+        float x = m[0] * inVec[0] + m[1] * inVec[1] + m[2] * inVec[2] + m[3];
+        float y = m[4] * inVec[0] + m[5] * inVec[1] + m[6] * inVec[2] + m[7];
+        float z = m[8] * inVec[0] + m[9] * inVec[1] + m[10] * inVec[2] + m[11];
+        float w = m[12] * inVec[0] + m[13] * inVec[1] + m[14] * inVec[2] + m[15];
+
+        if (Math.abs(w - 1) > 0.0001f && Math.abs(w) > 0.0001f) {
+            x /= w;
+            y /= w;
+            z /= w;
+        }
+        outVec[0] = x;
+        outVec[1] = y;
+        outVec[2] = z;
     }
 
     public Vector3 mulVector(Vector3 v) {

@@ -1,5 +1,6 @@
 package com.space.engine.core.components;
 
+import com.space.engine.core.ecs.components.TransformComponent;
 import com.space.engine.core.math.Vector3;
 import org.junit.jupiter.api.Test;
 

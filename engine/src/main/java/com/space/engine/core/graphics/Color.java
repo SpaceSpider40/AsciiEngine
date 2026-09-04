@@ -70,13 +70,22 @@ public class Color {
         return new Vector3(r, g, b);
     }
 
+    public float[] asFloats(){
+        return new float[]{r,g,b};
+    }
+
     /**
-     * Packs each color value into singular int
+     * Packs each color value into a singular int
      * "RRRRRRRRGGGGGGGGBBBBBBBB"
      *
      * @return int packed int color
      */
     public int pack() {
+        return pack(r,g,b);
+//        return (r << 16) | (g << 8) | b;
+    }
+
+    public static int pack(short r, short g, short b){
         return (r << 16) | (g << 8) | b;
     }
 

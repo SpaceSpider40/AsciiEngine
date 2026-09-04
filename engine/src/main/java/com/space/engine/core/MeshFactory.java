@@ -1,6 +1,6 @@
 package com.space.engine.core;
 
-import com.space.engine.core.components.MeshComponent;
+import com.space.engine.core.ecs.components.MeshComponent;
 import com.space.engine.core.math.Plane;
 import com.space.engine.core.math.Triangle;
 import com.space.engine.core.math.Vector3;

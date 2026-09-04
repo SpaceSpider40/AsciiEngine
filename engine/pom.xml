@@ -19,7 +19,7 @@
                 <directory>src/main/resources</directory>
                 <excludes>
                     <exclude>assets/**</exclude>
-                    <exclude>engine.cfg</exclude>
+                    <exclude>engine.json</exclude>
                 </excludes>
             </resource>
         </resources>
@@ -77,7 +77,7 @@
                                     <directory>src/main/resources</directory>
                                     <includes>
                                         <include>assets/**</include>
-                                        <include>engine.cfg</include>
+                                        <include>engine.json</include>
                                     </includes>
                                     <filtering>false</filtering>
                                 </resource>

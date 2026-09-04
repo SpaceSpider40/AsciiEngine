@@ -2,10 +2,10 @@ package com.space.engine.core.physics;
 
 import com.space.engine.core.Engine;
 import com.space.engine.core.EngineImpl;
-import com.space.engine.core.components.TransformComponent;
-import com.space.engine.core.components.physics.BoxColliderComponent;
-import com.space.engine.core.components.physics.GravityComponent;
-import com.space.engine.core.components.physics.RigidbodyComponent;
+import com.space.engine.core.ecs.components.TransformComponent;
+import com.space.engine.core.ecs.components.physics.BoxColliderComponent;
+import com.space.engine.core.ecs.components.physics.GravityComponent;
+import com.space.engine.core.ecs.components.physics.RigidbodyComponent;
 import com.space.engine.core.ecs.EcsRegister;
 import com.space.engine.core.math.Vector3;
 
@@ -462,7 +462,8 @@ public class Physics implements IPhysics {
     }
 
     private EcsRegister getEcs() {
-        return engine.currentWorld().getEntityRegistry();
+        return null;
+//        return engine.currentWorld().getEntityRegistry();
     }
 
     private float invMass(RigidbodyComponent body){

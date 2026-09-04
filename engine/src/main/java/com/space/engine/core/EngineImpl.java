@@ -1,24 +1,26 @@
 package com.space.engine.core;
 
+import com.space.engine.core.actors.components.CameraComponent;
+import com.space.engine.core.actors.components.TransformComponent;
 import com.space.engine.core.assets.AssetId;
 import com.space.engine.core.assets.AssetManager;
-import com.space.engine.core.assets.loaders.MeshLoader;
-import com.space.engine.core.graphics.AsciiRenderer;
-import com.space.engine.core.graphics.IRenderer;
+import com.space.engine.core.graphics.AsciiRendererV2;
+import com.space.engine.core.graphics.Renderer;
+import com.space.engine.core.graphics.ui.DebugStatsUIElement;
 import com.space.engine.core.physics.IPhysics;
 import com.space.engine.core.physics.Physics;
 import com.space.engine.core.util.TerminalSizer;
 
-import java.util.List;
 import java.io.IOException;
 import java.nio.file.Path;
+import java.util.List;
 
 public final class EngineImpl implements Engine {
 
     public static final boolean isWindows = System.getProperty("os.name").toLowerCase().contains("wind");
 
-    private static final float TPS = 1.0f / 60f;
-    private static final float FPS = 1.0f / 60f; // 0.08f
+    private static final double TPS = 1000.0 / 60.0;
+    private static final double FPS = 1000.0 / 60.0; // 0.08f
 
     private static final List<EngineState> initializableStates = List.of(
             EngineState.CREATED,
@@ -27,18 +29,20 @@ public final class EngineImpl implements Engine {
 
     private final WorldManager worldManager = new WorldManager();
 
-    private final Thread updatetThread = new Thread("update-thread");
+    private final Thread updateThread = new Thread(this::loop, "main-loop");
 
     private Config config;
 
-    private IRenderer renderer = null;
-    private IPhysics physics = null;
+    private Renderer renderer = null;
+    private IPhysics physics  = null;
 
     private AssetManager assetManager;
 
     private EngineState state = EngineState.CREATED;
 
-    private double deltaTime = 0;
+    private double deltaTime   = 0;
+    private double renderTime  = 0;
+    private double physicsTime = 0;
 
     public EngineState state() {
         return state;
@@ -70,15 +74,16 @@ public final class EngineImpl implements Engine {
 
         // Init redering
         var terminalSize = TerminalSizer.getTerminalSize();
-        renderer = new AsciiRenderer();
+        renderer = new AsciiRendererV2();
         renderer.init(terminalSize.width(), terminalSize.height());
+        // Init ui
 
         // init physics0.00000001f
         physics = new Physics(this, 0.00000986f);// 9.86f
 
         // register all buildin writers and readers
         assetManager = new AssetManager(Path.of("assets")); // todo: engine should export write function
-        assetManager.registerLoader("mesh", new MeshLoader());
+//        assetManager.registerLoader("mesh", new MeshLoader());
 
         // todo: if project file exist load last used scene
 
@@ -86,7 +91,7 @@ public final class EngineImpl implements Engine {
     }
 
     public <T> T load(AssetId assetId, Class<T> type) {
-        return assetManager.load(assetId, type);
+        return null;
     }
 
     // todo: this should be read from some project file
@@ -99,47 +104,18 @@ public final class EngineImpl implements Engine {
     }
 
     public int createEntity() {
-        return currentWorld().createEntity();
+        return -1;
     }
 
     public void destroyEntity(int entity) {
-        currentWorld().destroyEntity(entity);
+
     }
 
     public void run() {
         state = EngineState.RUNNING;
 
-        double accumulator = 0;
-
-        while (state == EngineState.RUNNING) {
-            var start = System.nanoTime();
-
-            // tick
-            accumulator += deltaTime;
-            while (accumulator >= TPS) {
-                accumulator -= TPS;
-                tick();
-            }
-
-            // render
-            update();
-
-            // calculate delta time
-            var end = System.nanoTime();
-            deltaTime = (end - start) / 1_000_000.0;
-
-            // sleep if delta time is less than FPS
-            // todo: update to something proper
-            if (deltaTime < FPS) {
-                try {
-                    Thread.sleep((long) (FPS - deltaTime) * 100);
-                } catch (InterruptedException e) {
-                    e.printStackTrace();
-                }
-            }
-        }
-
-        cleanup();
+        loop(); // for now no the same thread
+        // updateThread.run();
     }
 
     public void shutdown() {
@@ -150,25 +126,115 @@ public final class EngineImpl implements Engine {
         state = EngineState.STOPPED;
     }
 
+    private void loop() {
+        final double maxFrameTimeMs = 250.0; // todo: move to cofig
+
+        double accumulator = 0;
+
+        long previousTime = System.nanoTime();
+
+        var size = TerminalSizer.getTerminalSize();
+        var ele = new DebugStatsUIElement(
+                size.width() - 16,
+                0,
+                16,
+                3,
+                () -> deltaTime,
+                () -> renderTime,
+                () -> physicsTime);
+
+        while (state == EngineState.RUNNING) {
+            var frameStartTime = System.nanoTime();
+
+            double frameTimeMs = (frameStartTime - previousTime) / 1_000_000.0;
+            previousTime = frameStartTime;
+
+            frameTimeMs = Math.min(frameTimeMs, maxFrameTimeMs);
+
+            deltaTime = frameTimeMs;
+            accumulator += frameTimeMs;
+
+            // tick
+            while (accumulator >= TPS) {
+                tick();
+                accumulator -= TPS;
+            }
+
+            // update
+            update();
+            ele.update(deltaTime);
+
+            // render
+            if (renderer != null) {
+                long renderStartTime = System.nanoTime();
+                // submit objects
+                worldManager.getCurrentWorld().getActors().forEach(a -> {
+                    renderer.submit(a);
+                });
+                // submit ui
+                renderer.submit( // todo: test
+                        ele);
+
+                // render
+                renderer.draw();
+                renderTime = (System.nanoTime() - renderStartTime) / 1_000_000.0;
+            }
+
+            double elapsedMs = (System.nanoTime() - frameStartTime) / 1_000_000.0;
+            double sleepMs   = FPS - elapsedMs;
+
+            if (sleepMs > 0.0) {
+                try {
+                    long sleepMillis = (long) sleepMs;
+                    int  sleepNanos  = (int) ((sleepMs - sleepMillis) * 1_000_000.0);
+
+                    Thread.sleep(sleepMillis, sleepNanos);
+                } catch (InterruptedException e) {
+                    shutdown();
+                    Thread.currentThread().interrupt();
+                }
+            }
+        }
+
+        cleanup();
+    }
+
     private void update() {
         Input.update();
 
         if (Input.IsKeyDown(Input.KEY_X))
             shutdown();// todo: temp exit key
 
-        worldManager.getCurrentWorld().update(deltaTime);
-
-        if (renderer != null) {
-            renderer.render(worldManager.getCurrentWorld());
-        }
+        worldManager.getCurrentWorld().getActors().forEach(a -> a.update(deltaTime));
     }
 
     private void tick() {
 
-        // todo: check if terminal size has changed. if so restart the renderer
+        //find active camera and pass to renderer
+        worldManager.getCurrentWorld().getActors().forEach(a -> {
+            if (a.hasComponent(CameraComponent.class)) {
+                var cc = a.getComponent(CameraComponent.class);
+                var ct = a.getComponent(TransformComponent.class);
+                if (cc.isActive()) {
+                    renderer.camera(
+                            ct.position.asFloats(),
+                            ct.rotation.asFloats(),
+                            cc.near,
+                            cc.far,
+                            cc.fov
+                    );
+                }
+            }
+        });
 
-        physics.update(TPS);
-        worldManager.getCurrentWorld().tick(TPS);
+        // todo: check if terminal size has changed. if so restart the renderer
+        worldManager.getCurrentWorld().getActors().forEach(a -> a.step(TPS));
+
+        if (physics != null) {
+            long startPhysicsTime = System.nanoTime();
+//            physics.update(TPS);
+            physicsTime = (System.nanoTime() - startPhysicsTime) / 1_000_000.0;
+        }
     }
 
     private void cleanup() {

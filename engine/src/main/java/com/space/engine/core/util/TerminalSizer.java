@@ -21,6 +21,7 @@ public final class TerminalSizer {
             StringBuilder sb = new StringBuilder();
             int           c;
 
+            if (true) throw new Exception("DEBUG");
             while ((c = in.read()) != -1) {
                 if (c == 'R') break;
                 if (c != '\033' && c != '[') {
